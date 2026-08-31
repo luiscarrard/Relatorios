@@ -128,8 +128,9 @@ with st.sidebar:
         "Arquivo de fechamento",
         type=["xlsx", "xlsm"],
         help=(
-            "A aba de custos deve conter DT Digitacao, Filial, Descr Grupo, "
-            "Descr Evento, Descr Sub Ev, Produto, Quantidade e Vlr.Total."
+            "A aba de custos deve conter DT Digitacao, DT Emissao, Filial, "
+            "Descr Grupo, Descr Evento, Descr Sub Ev, Produto, Quantidade e "
+            "Vlr.Total. DT Emissao será usada quando DT Digitacao estiver vazia."
         ),
     )
     if not uploaded:
@@ -147,7 +148,9 @@ months = data["months"]
 month_labels = months_label_map(months)
 
 if not months:
-    st.warning("Não foram encontrados pagamentos com DT Digitacao válida.")
+    st.warning(
+        "Não foram encontrados pagamentos com DT Digitacao ou DT Emissao válida."
+    )
     st.stop()
 
 with st.sidebar:
@@ -161,9 +164,15 @@ with st.sidebar:
     st.caption(
         f"Registros válidos: {quality['valid_rows']} de {quality['source_rows']}"
     )
+    if quality.get("fallback_date_rows", 0):
+        st.info(
+            f"{quality['fallback_date_rows']} registro(s) sem DT Digitacao "
+            "utilizaram DT Emissao como data de referência."
+        )
     if quality["invalid_date_rows"]:
         st.warning(
-            f"{quality['invalid_date_rows']} registro(s) ignorado(s) por DT Digitacao inválida."
+            f"{quality['invalid_date_rows']} registro(s) ignorado(s) por não "
+            "possuírem DT Digitacao nem DT Emissao válida."
         )
 
     selected_month = st.selectbox(
@@ -828,8 +837,9 @@ with main_tabs[4]:
 with main_tabs[5]:
     st.subheader("Detalhamento transacional")
     st.caption(
-        "Pagamentos individuais apurados pela DT Digitacao, respeitando todos os "
-        "filtros da barra lateral."
+        "Pagamentos individuais apurados pela DT Digitacao; quando ela estiver "
+        "vazia, será utilizada a DT Emissao. Todos os filtros da barra lateral "
+        "são respeitados."
     )
 
     supplier_scope = filter_fact(fact, **filter_kwargs)
@@ -932,6 +942,7 @@ with main_tabs[5]:
 
         payment_table = payments.rename(
             columns={
+                "Data Digitação": "Data de referência",
                 "Linha": "Evento",
                 "Consumo": "Quantidade",
                 "Valor": "Valor total (R$)",
@@ -943,7 +954,7 @@ with main_tabs[5]:
             center_table(
                 payment_table,
                 {
-                    "Data Digitação": lambda value: value.strftime("%d/%m/%Y"),
+                    "Data de referência": lambda value: value.strftime("%d/%m/%Y"),
                     "Quantidade": lambda value: fmt_number(value, 2),
                     "Valor total (R$)": fmt_rs,
                     "Preço unitário (R$/unid.)": fmt_rs,
@@ -969,7 +980,8 @@ with main_tabs[5]:
 st.divider()
 st.caption(
     f"Base de cálculo: a aba '{data['fact_sheet']}' fornece os pagamentos "
-    "individuais e o mês é definido pela DT Digitacao. A aba 'Consumo' fornece "
+    "individuais e o mês é definido pela DT Digitacao; quando ela estiver "
+    "vazia ou inválida, será utilizada a DT Emissao. A aba 'Consumo' fornece "
     "o volume de leite. Preço unitário = Vlr.Total / Quantidade. "
     "Custo por litro = Vlr.Total / Volume processado."
 )

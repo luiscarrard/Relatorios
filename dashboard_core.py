@@ -168,9 +168,14 @@ def _read_transaction_fact(
             f"A aba '{sheet_name}' não contém os campos obrigatórios: " + ", ".join(missing)
         )
 
-    reference_date = pd.to_datetime(
+    digitization_date = pd.to_datetime(
         source("DT Digitacao", "DT Digitação"), dayfirst=True, errors="coerce"
     )
+    issue_date = pd.to_datetime(
+        source("DT Emissao", "DT Emissão"), dayfirst=True, errors="coerce"
+    )
+    fallback_date = digitization_date.isna() & issue_date.notna()
+    reference_date = digitization_date.fillna(issue_date)
     valid_date = reference_date.notna()
     fact = pd.DataFrame(index=raw.index)
     fact["Data Digitação"] = reference_date
@@ -210,6 +215,7 @@ def _read_transaction_fact(
         "header_row": header_row + 1,
         "source_rows": int(len(raw)),
         "valid_rows": int(len(fact)),
+        "fallback_date_rows": int(fallback_date.sum()),
         "invalid_date_rows": int((~valid_date).sum()),
     }
     return fact, quality
